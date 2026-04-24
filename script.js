@@ -828,7 +828,13 @@ function printTable(tableId, title) {
 // ==========================================
 // SISTEM KEAMANAN PIN ENKRIPSI
 // ==========================================
+
 async function hashPIN(pin) {
+    // Perlindungan agar tidak stuck jika browser HP memblokir Web Crypto API
+    if (!window.crypto || !window.crypto.subtle) {
+        console.warn("Web Crypto API tidak didukung. Menggunakan fallback.");
+        return pin; 
+    }
     const encoder = new TextEncoder();
     const data = encoder.encode(pin);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -836,50 +842,78 @@ async function hashPIN(pin) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+const CORRECT_PIN_HASH = "cd4b0bba7f67328dcff29180fb217d06f0d3a43a95ed32d175797b60e3216f83";
+
 async function checkAccessPin() {
+    // Cek apakah user sudah login di sesi ini (hilang jika tab ditutup)
     if (sessionStorage.getItem('perpus_auth') === 'true') {
-        fetchData();
+        fetchData(); 
         return;
     }
 
     const { value: pin } = await Swal.fire({
         title: '<h3 style="color: #0f172a; margin: 0;"><i class="fa-solid fa-lock"></i> Keamanan Perpustakaan</h3>',
-        html: '<p style="font-size:0.9rem; color:#64748b; margin-top:5px;">Silakan masukkan PIN akses.</p>',
+        html: '<p style="font-size:0.9rem; color:#64748b; margin-top:5px;">Silakan masukkan PIN akses untuk membuka Dashboard.</p>',
         input: 'password',
         inputPlaceholder: 'Masukkan 6 Digit PIN',
         inputAttributes: {
-            maxlength: 6, autocapitalize: 'off', autocorrect: 'off',
+            maxlength: 6,
+            autocapitalize: 'off',
+            autocorrect: 'off',
             style: 'text-align: center; font-size: 1.5rem; letter-spacing: 10px; border-radius: 12px;'
         },
         allowOutsideClick: false,
         allowEscapeKey: false,
         confirmButtonText: '<i class="fa-solid fa-key"></i> Buka Akses',
         confirmButtonColor: '#3b82f6',
-        customClass: { popup: 'form-glass' },
+        customClass: {
+            popup: 'form-glass'
+        },
         preConfirm: async (enteredPin) => {
             if (!enteredPin) {
                 Swal.showValidationMessage('<i class="fa-solid fa-circle-exclamation"></i> PIN tidak boleh kosong!');
                 return false;
             }
-            const hashedPin = await hashPIN(enteredPin.trim());
-            // PIN DEFAULT ADALAH: 363636
-            const targetHash = await hashPIN("363636");
             
-            if (hashedPin !== targetHash) {
-                Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> PIN salah! Akses ditolak.');
+            try {
+                // Hash PIN yang diketik user
+                const hashedPin = await hashPIN(enteredPin.trim());
+
+                // Fallback darurat jika Web Crypto API gagal beroperasi
+                if (hashedPin === enteredPin.trim()) {
+                    if (enteredPin.trim() !== "363636") {
+                        Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> PIN salah! Akses ditolak.');
+                        return false;
+                    }
+                    return true;
+                }
+
+                // Bandingkan dengan Hash di sistem
+                if (hashedPin !== CORRECT_PIN_HASH) {
+                    Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> PIN salah! Akses ditolak.');
+                    return false;
+                }
+                return true;
+
+            } catch (error) {
+                Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> Terjadi kesalahan pembacaan keamanan.');
                 return false;
             }
-            return true;
         }
     });
 
+    // Jika PIN Benar
     if (pin) {
-        sessionStorage.setItem('perpus_auth', 'true');
+        sessionStorage.setItem('perpus_auth', 'true'); // Simpan sesi login
         Swal.fire({
-            icon: 'success', title: 'Akses Diberikan', text: 'Selamat datang di Dashboard Perpustakaan',
-            timer: 1500, showConfirmButton: false, customClass: { popup: 'form-glass' }
+            icon: 'success',
+            title: 'Akses Diberikan',
+            text: 'Selamat datang di Dashboard Perpustakaan',
+            timer: 1500,
+            showConfirmButton: false,
+            customClass: { popup: 'form-glass' }
         });
-        fetchData(); 
+        fetchData(); // Jalankan pengambilan data dari Google Sheets
     }
 }
 
