@@ -1,5 +1,5 @@
 // GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA YANG BARU
-const scriptUrl = "https://script.google.com/macros/s/AKfycbydlymh_LqjTn1i_XidVm7BaFFbv0hevBuNfWVFJCXcYQWRtUA_p9h0ZEZsmTS5cUfb/exec";
+const scriptUrl = "https://script.google.com/macros/s/AKfycbzdcPz4vDmqYfAwN2dHXiLjLAYY-qhlczBGFbDrd0066us4gpY7_mNKiWI9pCOg8WQ/exec";
 
 // Variabel Global Data
 let dataKategori = [];
@@ -369,7 +369,7 @@ function renderTableAnggota() {
     
     let filtered = dataAnggota.filter(row => row[1].toLowerCase().includes(search) || row[2].toLowerCase().includes(search));
     
-    // Urutkan Anggota berdasarkan Kode Anggota (Terbesar ke Terkecil / Terbaru - Terlama)
+    // Urutkan Anggota berdasarkan Kode Anggota (Terbesar ke Terkecil)
     filtered.sort((a, b) => {
         let kodeA = String(a[1] || '');
         let kodeB = String(b[1] || '');
@@ -383,6 +383,8 @@ function renderTableAnggota() {
         rowsHtml = `<tr><td colspan="8" class="text-center text-muted">Data anggota tidak ditemukan</td></tr>`;
     } else {
         displayData.forEach((row, index) => {
+            // Karena Jml Pinjam ada di Kolom A, maka nilainya adalah row[0]
+            const sJmlPinjam = row[0] ? row[0] : 0; 
             const sKode=safeTxt(row[1]), sNama=safeTxt(row[2]), sJk=safeTxt(row[3]);
             const sTtl=safeTxt(row[4]), sAlm=safeTxt(row[5]), sTelp=safeTxt(row[6]);
 
@@ -393,7 +395,7 @@ function renderTableAnggota() {
                 <td class="text-center">${row[3]}</td>
                 <td>${row[4]}</td>
                 <td>${row[5]}</td>
-                <td>${row[6]}</td>
+                <td class="text-center"><span class="badge-count">${sJmlPinjam}</span></td>
                 <td class="text-center">
                     <button class="btn-more-sm" onclick="modalFormAnggota('edit', '${sKode}', '${sNama}', '${sJk}', '${sTtl}', '${sAlm}', '${sTelp}')"><i class="fa-solid fa-pen"></i></button>
                     <button class="btn-del" onclick="konfirmasiHapus('hapusAnggota', 'kode', '${sKode}', '${sNama}')"><i class="fa-solid fa-trash"></i></button>
@@ -763,13 +765,14 @@ function getFullTableHTML(tableId) {
         });
     } 
     else if (tableId === 'table-anggota') {
-        thead = '<thead><tr><th>No</th><th>Kode Anggota</th><th>Nama Lengkap</th><th>L/P</th><th>Tempat, Tgl Lahir</th><th>Alamat</th><th>Telephone</th></tr></thead>';
-        // Urutkan berdasarkan Kode Anggota terbesar/terbaru
+        thead = '<thead><tr><th>No</th><th>Kode Anggota</th><th>Nama Lengkap</th><th>L/P</th><th>Tempat, Tgl Lahir</th><th>Alamat</th><th>Jml Pinjam</th></tr></thead>';
         data = [...dataAnggota].sort((a,b) => String(b[1]||'').localeCompare(String(a[1]||''), undefined, {numeric: true}));
         data.forEach((row, i) => {
-            tbody += `<tr><td>${i+1}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td>${row[6]}</td></tr>`;
+            // Karena Jml Pinjam ada di Kolom A, kita ambil dari row[0]
+            let jmlPinjam = row[0] || 0; 
+            tbody += `<tr><td>${i+1}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td style="text-align:center;">${jmlPinjam}</td></tr>`;
         });
-    } 
+    }
     else {
         // Fallback jika id tidak dikenali, ambil dari layar saja
         return document.getElementById(tableId).outerHTML;
