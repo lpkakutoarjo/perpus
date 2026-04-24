@@ -134,3 +134,11 @@ label { display: block; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600
     .search-box input { width: 100%; }
     .swal2-popup { width: 95% !important; padding: 15px !important; }
 }
+
+.logo-img {
+    width: 75px;
+    height: 75px;
+    object-fit: contain; 
+    margin-bottom: 10px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); 
+}
