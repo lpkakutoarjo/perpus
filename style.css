@@ -135,10 +135,52 @@ label { display: block; margin-bottom: 8px; font-size: 0.85rem; font-weight: 600
     .swal2-popup { width: 95% !important; padding: 15px !important; }
 }
 
+/* Desain khusus untuk gambar logo PNG */
 .logo-img {
     width: 75px;
     height: 75px;
-    object-fit: contain; 
+    object-fit: contain;   /* 'contain' lebih baik untuk PNG transparan agar tidak terpotong */
     margin-bottom: 10px;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); 
+    /* border-radius: 50%; */ /* Aktifkan ini jika ingin logo berbentuk bulat */
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); /* Memberikan bayangan halus pada objek PNG */
+}
+
+/* Sidebar Footer & Logout */
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    background: var(--card-bg); /* Memastikan warnanya menyatu dengan sidebar */
+}
+
+.btn-logout {
+    width: 100%;
+    padding: 10px 15px;
+    background: #fee2e2;
+    color: var(--danger);
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.btn-logout:hover {
+    background: var(--danger);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+}
+
+.credit-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    line-height: 1.4;
 }
