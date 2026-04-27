@@ -1,5 +1,5 @@
 // GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA YANG BARU
-const scriptUrl = "https://script.google.com/macros/s/AKfycbzdcPz4vDmqYfAwN2dHXiLjLAYY-qhlczBGFbDrd0066us4gpY7_mNKiWI9pCOg8WQ/exec";
+const scriptUrl = "https://script.google.com/macros/s/AKfycbw__s9XntvDuCkovw8A0ttzaZyj6fsJb0xhgxDkY6HPZb8CNxrgxB6s8l3wve616WrG/exec";
 
 // Variabel Global Data
 let dataKategori = [];
@@ -172,29 +172,86 @@ const safeTxt = (str) => String(str || '').replace(/'/g, "\\'").replace(/"/g, "&
 
 
 // ==========================================
-// FUNGSI RENDER TABEL
+// FUNGSI RENDER TABEL & SORTING
 // ==========================================
+
+// 1. Menyimpan State Pengurutan (Kolom apa yang diurutkan dan jenisnya ASC/DESC)
+let sortState = {
+    dash: { col: -1, order: 'desc' },
+    pinjam: { col: -1, order: 'desc' },
+    buku: { col: -1, order: 'desc' },
+    anggota: { col: -1, order: 'desc' },
+    kategori: { col: -1, order: 'asc' } // Kategori defaultnya Atas ke Bawah
+};
+
+// 2. Fungsi Eksekusi Sorting saat Header Tabel diklik
+function setSort(tabel, colIndex) {
+    if (sortState[tabel].col === colIndex) {
+        sortState[tabel].order = sortState[tabel].order === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortState[tabel].col = colIndex;
+        sortState[tabel].order = 'asc';
+    }
+    
+    if (tabel === 'dash') renderTableDashboard();
+    if (tabel === 'pinjam') renderTablePeminjaman();
+    if (tabel === 'buku') renderTableBuku();
+    if (tabel === 'anggota') renderTableAnggota();
+    if (tabel === 'kategori') renderTableKategori();
+}
+
+// 3. Fungsi Menampilkan Icon Panah (Naik / Turun)
+function getSortIcon(tabel, colIndex) {
+    if (sortState[tabel].col !== colIndex) {
+        return '<i class="fa-solid fa-sort" style="color:#cbd5e1; margin-left:5px;"></i>';
+    }
+    return sortState[tabel].order === 'asc' 
+        ? '<i class="fa-solid fa-sort-up" style="color:#3b82f6; margin-left:5px;"></i>' 
+        : '<i class="fa-solid fa-sort-down" style="color:#3b82f6; margin-left:5px;"></i>';
+}
 
 function renderTableDashboard() {
     const tbody = document.getElementById('tbody-dash-pinjam');
+    const thead = document.querySelector('#table-dash-pinjam thead');
     if(!tbody) return;
+
+    // Suntik Thead Baru agar Header bisa diklik
+    if (thead) {
+        thead.innerHTML = `<tr>
+            <th width="50px">No</th>
+            <th onclick="setSort('dash', 0)" style="cursor:pointer; user-select:none; white-space:nowrap;">No Anggota ${getSortIcon('dash', 0)}</th>
+            <th onclick="setSort('dash', 1)" style="cursor:pointer; user-select:none; white-space:nowrap;">Nama Lengkap ${getSortIcon('dash', 1)}</th>
+            <th>Kode Buku</th>
+            <th>Judul Buku</th>
+            <th>Jml</th>
+            <th>Tgl Pinjam</th>
+            <th>Tgl Kembali</th>
+            <th>Status</th>
+        </tr>`;
+    }
+
     const limit = document.getElementById('limit-dash-pinjam').value;
     const search = document.getElementById('search-dash-pinjam').value.toLowerCase();
     
-    // Copy dan balik array agar data terbawah (terbaru dari sheet) otomatis naik ke atas
-    let dataMundur = [...dataPinjam].reverse();
+    let dataArr = [...dataPinjam];
     
-    let filtered = dataMundur.filter(row => {
+    // Logika Pengurutan
+    if (sortState.dash.col !== -1) {
+        let c = sortState.dash.col;
+        let isAsc = sortState.dash.order === 'asc';
+        dataArr.sort((a, b) => {
+            let valA = String(a[c] || '').toLowerCase();
+            let valB = String(b[c] || '').toLowerCase();
+            return isAsc ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
+        });
+    } else {
+        dataArr.reverse(); // Default sheet terbaru di atas
+    }
+
+    let filtered = dataArr.filter(row => {
         let statusVal = row[7] ? String(row[7]).trim().toLowerCase() : '';
         return statusVal.includes('belum') &&
         ((row[0]||'').toString().toLowerCase().includes(search) || (row[1]||'').toString().toLowerCase().includes(search) || (row[2]||'').toString().toLowerCase().includes(search));
-    });
-    
-    // Urutkan spesifik berdasarkan tanggal pinjam (Terbaru - Terlama)
-    filtered.sort((a, b) => {
-        let dateA = new Date(a[5]);
-        let dateB = new Date(b[5]);
-        return (!isNaN(dateA) && !isNaN(dateB)) ? dateB - dateA : 0;
     });
     
     let displayData = limit === 'all' ? filtered : filtered.slice(0, parseInt(limit));
@@ -223,26 +280,47 @@ function renderTableDashboard() {
 
 function renderTablePeminjaman() {
     const tbody = document.getElementById('tbody-peminjaman');
+    const thead = document.querySelector('#table-peminjaman thead');
     if(!tbody) return;
+
+    if(thead) {
+        thead.innerHTML = `<tr>
+            <th width="50px">No</th>
+            <th onclick="setSort('pinjam', 0)" style="cursor:pointer; user-select:none; white-space:nowrap;">No Anggota ${getSortIcon('pinjam', 0)}</th>
+            <th onclick="setSort('pinjam', 1)" style="cursor:pointer; user-select:none; white-space:nowrap;">Nama Lengkap ${getSortIcon('pinjam', 1)}</th>
+            <th>Kode Buku</th>
+            <th>Judul Buku</th>
+            <th>Jml</th>
+            <th>Tgl Pinjam</th>
+            <th>Tgl Kembali</th>
+            <th>Tgl Pengembalian</th>
+            <th>Denda</th>
+            <th class="text-center">Aksi</th>
+        </tr>`;
+    }
+
     const limit = document.getElementById('limit-peminjaman').value;
     const search = document.getElementById('search-peminjaman').value.toLowerCase();
     
-    // Copy dan balik array agar data terbawah (terbaru dari sheet) otomatis naik ke atas
-    let dataMundur = [...dataPinjam].reverse();
+    let dataArr = [...dataPinjam];
+    if (sortState.pinjam.col !== -1) {
+        let c = sortState.pinjam.col;
+        let isAsc = sortState.pinjam.order === 'asc';
+        dataArr.sort((a, b) => {
+            let valA = String(a[c] || '').toLowerCase();
+            let valB = String(b[c] || '').toLowerCase();
+            return isAsc ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
+        });
+    } else {
+        dataArr.reverse();
+    }
 
-    let filtered = dataMundur.filter(row => 
+    let filtered = dataArr.filter(row => 
         (row[0]||'').toString().toLowerCase().includes(search) || 
         (row[1]||'').toString().toLowerCase().includes(search) || 
         (row[2]||'').toString().toLowerCase().includes(search) ||
         (row[3]||'').toString().toLowerCase().includes(search)
     );
-
-    // Urutkan spesifik berdasarkan tanggal pinjam (Terbaru - Terlama)
-    filtered.sort((a, b) => {
-        let dateA = new Date(a[5]);
-        let dateB = new Date(b[5]);
-        return (!isNaN(dateA) && !isNaN(dateB)) ? dateB - dateA : 0;
-    });
 
     let displayData = limit === 'all' ? filtered : filtered.slice(0, parseInt(limit));
     
@@ -285,13 +363,36 @@ function renderTablePeminjaman() {
 
 function renderTableKategori() {
     const tbody = document.getElementById('tbody-kategori');
+    if(!tbody) return;
+    const thead = tbody.parentNode.querySelector('thead');
+
+    if(thead) {
+        thead.innerHTML = `<tr>
+            <th width="50px">No</th>
+            <th onclick="setSort('kategori', 0)" style="cursor:pointer; user-select:none; white-space:nowrap;">Kode Kategori ${getSortIcon('kategori', 0)}</th>
+            <th>Nama Kategori</th>
+            <th>Total Buku (Stok)</th>
+            <th width="15%" class="text-center">Aksi</th>
+        </tr>`;
+    }
+
     const limit = document.getElementById('limit-kategori').value;
     const search = document.getElementById('search-kategori').value.toLowerCase();
     
-    // Copy dan balik array agar kategori terbaru ada di atas
-    let dataMundur = [...dataKategori].reverse();
+    let dataArr = [...dataKategori];
 
-    let filtered = dataMundur.filter(row => row[1].toLowerCase().includes(search) || row[0].toLowerCase().includes(search));
+    if (sortState.kategori.col !== -1) {
+        let c = sortState.kategori.col;
+        let isAsc = sortState.kategori.order === 'asc';
+        dataArr.sort((a, b) => {
+            let valA = String(a[c] || '').toLowerCase();
+            let valB = String(b[c] || '').toLowerCase();
+            return isAsc ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
+        });
+    } 
+    // Jika tidak disort manual, default membiarkan Array utuh agar sesuai dengan Urutan Sheet Database Atas ke Bawah
+
+    let filtered = dataArr.filter(row => row[1].toLowerCase().includes(search) || row[0].toLowerCase().includes(search));
     let displayData = limit === 'all' ? filtered : filtered.slice(0, parseInt(limit));
 
     let rowsHtml = '';
@@ -321,13 +422,42 @@ function renderTableKategori() {
 
 function renderTableBuku() {
     const tbody = document.getElementById('tbody-buku');
+    const thead = document.querySelector('#table-buku thead');
+    if(!tbody) return;
+
+    if(thead) {
+        thead.innerHTML = `<tr>
+            <th width="50px">No</th>
+            <th onclick="setSort('buku', 1)" style="cursor:pointer; user-select:none; white-space:nowrap;">Kategori ${getSortIcon('buku', 1)}</th>
+            <th onclick="setSort('buku', 2)" style="cursor:pointer; user-select:none; white-space:nowrap;">Kode Buku ${getSortIcon('buku', 2)}</th>
+            <th onclick="setSort('buku', 3)" style="cursor:pointer; user-select:none; white-space:nowrap;">Judul Buku ${getSortIcon('buku', 3)}</th>
+            <th>Edisi / Jilid</th>
+            <th>Penerbit / Kota</th>
+            <th>Tahun</th>
+            <th>Stok</th>
+            <th>Pengarang</th>
+            <th class="text-center">Aksi</th>
+        </tr>`;
+    }
+
     const limit = document.getElementById('limit-buku').value;
     const search = document.getElementById('search-buku').value.toLowerCase();
     
-    // Copy dan balik array agar buku terbaru ada di atas
-    let dataMundur = [...dataBuku].reverse();
+    let dataArr = [...dataBuku];
 
-    let filtered = dataMundur.filter(row => 
+    if (sortState.buku.col !== -1) {
+        let c = sortState.buku.col;
+        let isAsc = sortState.buku.order === 'asc';
+        dataArr.sort((a, b) => {
+            let valA = String(a[c] || '').toLowerCase();
+            let valB = String(b[c] || '').toLowerCase();
+            return isAsc ? valA.localeCompare(valB, undefined, {numeric: true}) : valB.localeCompare(valA, undefined, {numeric: true});
+        });
+    } else {
+        dataArr.reverse();
+    }
+
+    let filtered = dataArr.filter(row => 
         row[3].toLowerCase().includes(search) || row[2].toLowerCase().includes(search) || row[1].toLowerCase().includes(search)
     );
     let displayData = limit === 'all' ? filtered : filtered.slice(0, parseInt(limit));
@@ -364,18 +494,49 @@ function renderTableBuku() {
 
 function renderTableAnggota() {
     const tbody = document.getElementById('tbody-anggota');
+    const thead = document.querySelector('#table-anggota thead');
+    if(!tbody) return;
+
+    if(thead) {
+        thead.innerHTML = `<tr>
+            <th width="50px">No</th>
+            <th onclick="setSort('anggota', 1)" style="cursor:pointer; user-select:none; white-space:nowrap;">Kode Anggota ${getSortIcon('anggota', 1)}</th>
+            <th onclick="setSort('anggota', 2)" style="cursor:pointer; user-select:none; white-space:nowrap;">Nama Lengkap ${getSortIcon('anggota', 2)}</th>
+            <th>L/P</th>
+            <th>Tempat, Tgl Lahir</th>
+            <th>Alamat</th>
+            <th onclick="setSort('anggota', 0)" style="cursor:pointer; user-select:none; white-space:nowrap;">Jml Pinjam ${getSortIcon('anggota', 0)}</th>
+            <th class="text-center">Aksi</th>
+        </tr>`;
+    }
+
     const limit = document.getElementById('limit-anggota').value;
     const search = document.getElementById('search-anggota').value.toLowerCase();
     
-    let filtered = dataAnggota.filter(row => row[1].toLowerCase().includes(search) || row[2].toLowerCase().includes(search));
-    
-    // Urutkan Anggota berdasarkan Kode Anggota (Terbesar ke Terkecil)
-    filtered.sort((a, b) => {
-        let kodeA = String(a[1] || '');
-        let kodeB = String(b[1] || '');
-        return kodeB.localeCompare(kodeA, undefined, { numeric: true });
-    });
+    let dataArr = [...dataAnggota];
 
+    if (sortState.anggota.col !== -1) {
+        let c = sortState.anggota.col;
+        let isAsc = sortState.anggota.order === 'asc';
+        
+        dataArr.sort((a, b) => {
+            let valA = a[c] || '';
+            let valB = b[c] || '';
+            
+            // Perlakuan Khusus Sorting Angka untuk Jumlah Peminjaman
+            if (c === 0) {
+                return isAsc ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
+            }
+            // Perlakuan sorting teks alfabet (Bisa toleransi angka seperti A01 < A10)
+            return isAsc 
+                ? String(valA).localeCompare(String(valB), undefined, {numeric: true}) 
+                : String(valB).localeCompare(String(valA), undefined, {numeric: true});
+        });
+    } else {
+        dataArr.reverse();
+    }
+
+    let filtered = dataArr.filter(row => row[1].toLowerCase().includes(search) || row[2].toLowerCase().includes(search));
     let displayData = limit === 'all' ? filtered : filtered.slice(0, parseInt(limit));
 
     let rowsHtml = '';
@@ -383,7 +544,6 @@ function renderTableAnggota() {
         rowsHtml = `<tr><td colspan="8" class="text-center text-muted">Data anggota tidak ditemukan</td></tr>`;
     } else {
         displayData.forEach((row, index) => {
-            // Karena Jml Pinjam ada di Kolom A, maka nilainya adalah row[0]
             const sJmlPinjam = row[0] ? row[0] : 0; 
             const sKode=safeTxt(row[1]), sNama=safeTxt(row[2]), sJk=safeTxt(row[3]);
             const sTtl=safeTxt(row[4]), sAlm=safeTxt(row[5]), sTelp=safeTxt(row[6]);
@@ -824,6 +984,29 @@ function printTable(tableId, title) {
     win.document.close();
 }
 
+// ==========================================
+// FUNGSI LOGOUT
+// ==========================================
+function logout() {
+    Swal.fire({
+        title: 'Keluar Sistem?',
+        text: 'Anda harus memasukkan PIN dan OTP kembali untuk masuk.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: '<i class="fa-solid fa-right-from-bracket"></i> Ya, Logout',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Hapus sesi autentikasi dari browser
+            sessionStorage.removeItem('perpus_auth');
+            
+            // Reload halaman untuk memicu kembali kunci keamanan (checkAccessPin)
+            window.location.reload();
+        }
+    });
+}
 
 // ==========================================
 // SISTEM KEAMANAN PIN ENKRIPSI
@@ -845,7 +1028,6 @@ async function hashPIN(pin) {
 const CORRECT_PIN_HASH = "cd4b0bba7f67328dcff29180fb217d06f0d3a43a95ed32d175797b60e3216f83";
 
 async function checkAccessPin() {
-    // Cek apakah user sudah login di sesi ini (hilang jika tab ditutup)
     if (sessionStorage.getItem('perpus_auth') === 'true') {
         fetchData(); 
         return;
@@ -853,67 +1035,74 @@ async function checkAccessPin() {
 
     const { value: pin } = await Swal.fire({
         title: '<h3 style="color: #0f172a; margin: 0;"><i class="fa-solid fa-lock"></i> Keamanan Perpustakaan</h3>',
-        html: '<p style="font-size:0.9rem; color:#64748b; margin-top:5px;">Silakan masukkan PIN akses untuk membuka Dashboard.</p>',
         input: 'password',
         inputPlaceholder: 'Masukkan 6 Digit PIN',
-        inputAttributes: {
-            maxlength: 6,
-            autocapitalize: 'off',
-            autocorrect: 'off',
-            style: 'text-align: center; font-size: 1.5rem; letter-spacing: 10px; border-radius: 12px;'
-        },
+        inputAttributes: { maxlength: 6, style: 'text-align: center; font-size: 1.5rem; letter-spacing: 10px; border-radius: 12px;' },
         allowOutsideClick: false,
-        allowEscapeKey: false,
-        confirmButtonText: '<i class="fa-solid fa-key"></i> Buka Akses',
+        confirmButtonText: 'Lanjut <i class="fa-solid fa-arrow-right"></i>',
         confirmButtonColor: '#3b82f6',
-        customClass: {
-            popup: 'form-glass'
-        },
         preConfirm: async (enteredPin) => {
-            if (!enteredPin) {
-                Swal.showValidationMessage('<i class="fa-solid fa-circle-exclamation"></i> PIN tidak boleh kosong!');
+            const hashedInput = await hashPIN(enteredPin.trim());
+            // Cek apakah hash cocok (Tidak ada lagi teks "363636" di sini)
+            if (hashedInput !== CORRECT_PIN_HASH) {
+                Swal.showValidationMessage('PIN salah! Akses ditolak.');
                 return false;
             }
-            
-            try {
-                // Hash PIN yang diketik user
-                const hashedPin = await hashPIN(enteredPin.trim());
-
-                // Fallback darurat jika Web Crypto API gagal beroperasi
-                if (hashedPin === enteredPin.trim()) {
-                    if (enteredPin.trim() !== "363636") {
-                        Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> PIN salah! Akses ditolak.');
-                        return false;
-                    }
-                    return true;
-                }
-
-                // Bandingkan dengan Hash di sistem
-                if (hashedPin !== CORRECT_PIN_HASH) {
-                    Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> PIN salah! Akses ditolak.');
-                    return false;
-                }
-                return true;
-
-            } catch (error) {
-                Swal.showValidationMessage('<i class="fa-solid fa-triangle-exclamation"></i> Terjadi kesalahan pembacaan keamanan.');
-                return false;
-            }
+            return true;
         }
     });
 
-    // Jika PIN Benar
     if (pin) {
-        sessionStorage.setItem('perpus_auth', 'true'); // Simpan sesi login
-        Swal.fire({
-            icon: 'success',
-            title: 'Akses Diberikan',
-            text: 'Selamat datang di Dashboard Perpustakaan',
-            timer: 1500,
-            showConfirmButton: false,
-            customClass: { popup: 'form-glass' }
-        });
-        fetchData(); // Jalankan pengambilan data dari Google Sheets
+        // --- PROSES OTP ---
+        Swal.fire({ title: 'Mengirim OTP...', text: 'Memproses ke email (Tunggu max 5 detik)', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        
+        try {
+            // PERBAIKAN: Tambahkan header text/plain agar tidak terkena block CORS dari Browser
+            const res = await fetch(scriptUrl, { 
+                method: 'POST', 
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8',
+                },
+                body: JSON.stringify({ action: 'requestOTP' }) 
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                const { value: otp } = await Swal.fire({
+                    title: 'Verifikasi OTP',
+                    text: 'Masukkan kode 4-Digit yang dikirim ke Email',
+                    input: 'text',
+                    inputPlaceholder: 'Kode OTP',
+                    // PERBAIKAN: Maksimal panjang karakter diubah jadi 4
+                    inputAttributes: { maxlength: 4, style: 'text-align: center; font-size: 1.5rem; letter-spacing: 10px; border-radius: 12px;' },
+                    showCancelButton: true,
+                    confirmButtonText: 'Verifikasi OTP',
+                    preConfirm: async (val) => {
+                        const verifyRes = await fetch(scriptUrl, { 
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: 'verifyOTP', otp: val }) 
+                        });
+                        const verifyData = await verifyRes.json();
+                        if (verifyData.status !== 'success') {
+                            Swal.showValidationMessage(verifyData.message);
+                            return false;
+                        }
+                        return true;
+                    }
+                });
+
+                if (otp) {
+                    sessionStorage.setItem('perpus_auth', 'true');
+                    Swal.fire({ icon: 'success', title: 'Akses Diberikan', timer: 1500, showConfirmButton: false });
+                    fetchData();
+                }
+            } else {
+                Swal.fire('Error', data.message || 'Gagal mengirim OTP', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error Jaringan', 'Gagal menghubungi server. Pastikan koneksi internet stabil.', 'error');
+        }
     }
 }
 
