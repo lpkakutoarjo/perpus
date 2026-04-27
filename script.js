@@ -1,5 +1,5 @@
 // GANTI DENGAN URL DEPLOYMENT GOOGLE APPS SCRIPT ANDA YANG BARU
-const scriptUrl = "https://script.google.com/macros/s/AKfycbw__s9XntvDuCkovw8A0ttzaZyj6fsJb0xhgxDkY6HPZb8CNxrgxB6s8l3wve616WrG/exec";
+const scriptUrl = "https://script.google.com/macros/s/AKfycbxSl6fqAncxIcFXWrO4varuXdmXBl4tDRTDkLza-e9m8FzQehg9tHUGixwQLqa-7wmi/exec";
 
 // Variabel Global Data
 let dataKategori = [];
