@@ -578,12 +578,24 @@ function modalBuku() { modalFormBuku('tambah'); }
 function modalAnggota() { modalFormAnggota('tambah'); }
 
 // ---------------------------------
-// MODAL PEMINJAMAN BARU (UPDATED DYNAMIC DATE)
+// MODAL PEMINJAMAN BARU (BLOKIR BERDASARKAN KOLOM STATUS)
 // ---------------------------------
 function modalFormPinjam() {
-    // Generate Opsi Datalist Anggota
-    let optAnggota = dataAnggota.map(a => `<option value="${a[1]} | ${a[2]}">`).join('');
-    
+    // 1. Cari No Anggota anak-anak yang masih punya tanggungan buku belum dikembalikan
+    // Membaca tepat di index 7 yang merupakan kolom "Status"
+    let anggotaBelumKembali = dataPinjam.filter(row => {
+        let statusVal = row[7] ? String(row[7]).trim().toLowerCase() : '';
+        // Memblokir jika statusnya masih mengandung kata "belum" atau tidak sengaja terisi kosong
+        return statusVal.includes('belum') || statusVal === '';
+    }).map(row => String(row[0]).trim().toUpperCase()); 
+
+    // 2. Generate Opsi Datalist Anggota 
+    // Hanya tampilkan anak yang TIDAK ADA di array anggotaBelumKembali
+    let optAnggota = dataAnggota.filter(a => {
+        let noAnggota = String(a[1]).trim().toUpperCase();
+        return !anggotaBelumKembali.includes(noAnggota);
+    }).map(a => `<option value="${a[1]} | ${a[2]}">`).join('');
+        
     // Generate Opsi Datalist Buku (Hanya yang stoknya > 0)
     let optBuku = dataBuku.filter(b => b[10] > 0).map(b => `<option value="${b[2]} | ${b[3]}">`).join('');
 
@@ -591,12 +603,12 @@ function modalFormPinjam() {
         Swal.fire({ icon: 'warning', title: 'Oops', text: 'Tidak ada buku yang stoknya tersedia saat ini!' }); 
         return;
     }
+    
     if(!optAnggota) {
-        Swal.fire({ icon: 'warning', title: 'Oops', text: 'Belum ada data anggota yang terdaftar!' }); 
+        Swal.fire({ icon: 'warning', title: 'Oops', text: 'Semua anggota saat ini sedang meminjam buku. Belum ada yang bisa meminjam lagi!' }); 
         return;
     }
 
-    // Fungsi bantuan agar format tanggal YYYY-MM-DD aman dari perbedaan Timezone lokal
     const formatTgl = (d) => {
         let month = '' + (d.getMonth() + 1), day = '' + d.getDate(), year = d.getFullYear();
         if (month.length < 2) month = '0' + month;
@@ -604,7 +616,6 @@ function modalFormPinjam() {
         return [year, month, day].join('-');
     };
 
-    // Tgl Default saat modal dibuka
     let tglHariIniObj = new Date();
     let strHariIni = formatTgl(tglHariIniObj);
     
@@ -625,7 +636,7 @@ function modalFormPinjam() {
                 <datalist id="list-buku">${optBuku}</datalist>
                 
                 <label class="mt-3">Jumlah Buku</label>
-                <input type="number" id="swal-pinjam-jml" class="input-standard" value="1" min="1" required>
+                <input type="number" id="swal-pinjam-jml" class="input-standard" value="1" min="1" max="1" style="background: #e2e8f0; cursor: not-allowed; font-weight: bold;" readonly>
                 
                 <div style="display:flex; gap:10px;" class="mt-3">
                     <div style="flex:1">
@@ -642,20 +653,35 @@ function modalFormPinjam() {
         width: '550px', showCancelButton: true, confirmButtonText: '<i class="fa-solid fa-save"></i> Simpan Peminjaman', confirmButtonColor: '#3b82f6',
         customClass: { popup: 'form-glass' },
         didOpen: () => {
-            enterToSubmit(); // Tetap jalankan fungsi submit via Enter bawaan Anda
+            enterToSubmit(); 
             
-            // --- LOGIKA PERUBAHAN TANGGAL KEMBALI OTOMATIS ---
             const tglPinjamInput = document.getElementById('swal-pinjam-tgl');
             const tglKembaliInput = document.getElementById('swal-pinjam-tglk');
+            const inputAnggota = document.getElementById('swal-pinjam-anggota');
+            const inputBuku = document.getElementById('swal-pinjam-buku');
+            const btnConfirm = Swal.getConfirmButton();
 
             tglPinjamInput.addEventListener('change', (e) => {
                 if(e.target.value) {
-                    // Membaca tanggal yang baru dipilih user
                     let selectedDate = new Date(e.target.value);
-                    // Tambah 7 Hari dari tanggal yang baru
                     selectedDate.setDate(selectedDate.getDate() + 7);
-                    // Format dan update ke field Tgl Kembali
                     tglKembaliInput.value = formatTgl(selectedDate);
+                }
+            });
+
+            inputAnggota.addEventListener('input', (e) => {
+                const val = e.target.value;
+                if(val.includes(' | ')) {
+                    const noAng = val.split(' | ')[0].trim().toUpperCase();
+                    if(anggotaBelumKembali.includes(noAng)) {
+                        Swal.showValidationMessage('⛔ Anggota ini masih memiliki status "Belum Kembali" pada buku sebelumnya!');
+                        inputBuku.disabled = true;
+                        btnConfirm.disabled = true;
+                    } else {
+                        Swal.resetValidationMessage();
+                        inputBuku.disabled = false;
+                        btnConfirm.disabled = false;
+                    }
                 }
             });
         },
@@ -676,10 +702,13 @@ function modalFormPinjam() {
                 return false;
             }
 
-            if(!jumlahBuku || jumlahBuku < 1) {
-                Swal.showValidationMessage('Jumlah buku tidak valid!'); return false;
+            const noAnggota = anggotaSplit[0].trim().toUpperCase();
+
+            if (anggotaBelumKembali.includes(noAnggota)) {
+                Swal.showValidationMessage('⛔ Anggota ini masih memiliki buku yang berstatus "Belum Kembali"!');
+                return false;
             }
-            
+
             submitDataProses({
                 action: 'tambahPinjam',
                 noAnggota: anggotaSplit[0].trim(), 
@@ -789,35 +818,56 @@ function modalFormKategori(mode, kode = '', nama = '') {
 
 function modalFormBuku(mode, kat='', kode='', judul='', edisi='', jilid='', penerbit='', kota='', tahun='', isbn='', stok='', p1='', p2='') {
     const isEdit = mode === 'edit';
+    
+    // Generate opsi kategori
     let optKategori = dataKategori.map(k => {
         let val = `${k[0]}-${k[1]}`;
         let selected = (val === kat) ? 'selected' : '';
         return `<option value="${val}" ${selected}>${val}</option>`;
     }).join('');
 
+    // Jika mode edit, kita pisahkan angka dari kode bukunya (Misal "A.123" -> ambil "123" saja)
+    let numOnly = kode;
+    if (isEdit && kode.includes('.')) {
+        let parts = kode.split('.');
+        parts.shift(); // Buang bagian awalan (A)
+        numOnly = parts.join('.'); // Gabungkan sisanya jika ada titik lagi
+    }
+
     Swal.fire({
         title: `<h3 style="margin:0;"><i class="fa-solid fa-book"></i> ${isEdit ? 'Edit' : 'Tambah'} Data Buku</h3>`,
         html: `
             <div style="text-align: left; padding-top: 15px; height: 350px; overflow-y: scroll; padding-right:10px;">
                 <label>Kategori</label><select id="swal-kat" class="input-standard">${optKategori}</select>
-                <label class="mt-3">Kode Buku *</label><input id="swal-kode" class="input-standard" value="${kode}" required>
+                
+                <label class="mt-3">Kode Buku *</label>
+                <div style="display:flex; gap:10px;">
+                    <!-- Kolom prefix ini dibuat 'readonly' agar terblok/terkunci -->
+                    <input id="swal-kode-prefix" class="input-standard" style="width: 80px; background: #e2e8f0; color: #475569; font-weight: bold; text-align: center; cursor: not-allowed;" readonly>
+                    <input id="swal-kode-num" class="input-standard" value="${numOnly}" placeholder="Misal: 123" required>
+                </div>
+
                 <label class="mt-3">Judul Buku *</label><input id="swal-judul" class="input-standard" value="${judul}" required>
+                
                 <label class="mt-3">Edisi / Jilid</label>
                 <div style="display:flex; gap:10px;">
                     <input id="swal-edisi" class="input-standard" placeholder="Edisi" value="${edisi}">
                     <input id="swal-jilid" class="input-standard" placeholder="Jilid" value="${jilid}">
                 </div>
+                
                 <label class="mt-3">Penerbit / Kota</label>
                 <div style="display:flex; gap:10px;">
                     <input id="swal-penerbit" class="input-standard" placeholder="Penerbit" value="${penerbit}">
                     <input id="swal-kota" class="input-standard" placeholder="Kota" value="${kota}">
                 </div>
+                
                 <label class="mt-3">Tahun / ISBN / Stok *</label>
                 <div style="display:flex; gap:10px;">
                     <input id="swal-tahun" class="input-standard" placeholder="Tahun" value="${tahun}">
                     <input id="swal-isbn" class="input-standard" placeholder="ISBN" value="${isbn}">
                     <input id="swal-stok" type="number" class="input-standard" placeholder="Stok" value="${stok}" required>
                 </div>
+                
                 <label class="mt-3">Pengarang 1 & 2</label>
                 <input id="swal-p1" class="input-standard mb-2" placeholder="Pengarang 1" value="${p1}">
                 <input id="swal-p2" class="input-standard" placeholder="Pengarang 2" value="${p2}">
@@ -825,16 +875,50 @@ function modalFormBuku(mode, kat='', kode='', judul='', edisi='', jilid='', pene
         `,
         width: '600px', showCancelButton: true, confirmButtonText: '<i class="fa-solid fa-save"></i> Simpan', confirmButtonColor: '#3b82f6',
         customClass: { popup: 'form-glass' },
-        didOpen: enterToSubmit,
+        didOpen: () => {
+            enterToSubmit();
+            
+            const katSelect = document.getElementById('swal-kat');
+            const prefixInput = document.getElementById('swal-kode-prefix');
+            const numInput = document.getElementById('swal-kode-num');
+
+            // Fungsi untuk update kode awalan yang terblok
+            const updatePrefix = () => {
+                if (katSelect.value) {
+                    const prefix = katSelect.value.split('-')[0].trim() + '.';
+                    prefixInput.value = prefix;
+                }
+            };
+
+            // Panggil saat modal pertama kali dibuka
+            updatePrefix();
+
+            // Saat kategori diubah, otomatis update prefix dan arahkan kursor ke isian nomor
+            katSelect.addEventListener('change', () => {
+                updatePrefix();
+                numInput.focus();
+            });
+        },
         preConfirm: () => {
-            const inputKode = document.getElementById('swal-kode').value;
+            // Gabungkan awalan yang terblok dengan angka yang diketik admin
+            const prefixVal = document.getElementById('swal-kode-prefix').value;
+            const numVal = document.getElementById('swal-kode-num').value;
+            const inputKodeLengkap = prefixVal + numVal;
+
             const inputJudul = document.getElementById('swal-judul').value;
             const inputStok = document.getElementById('swal-stok').value;
-            if (!inputKode || !inputJudul || !inputStok) { Swal.showValidationMessage('Kode, Judul, dan Stok wajib diisi!'); return false; }
+            
+            // Validasi: pastikan admin mengisi bagian nomor
+            if (!numVal || !inputJudul || !inputStok) { 
+                Swal.showValidationMessage('Nomor Kode, Judul, dan Stok wajib diisi!'); 
+                return false; 
+            }
             
             submitDataProses({
                 action: isEdit ? 'editBuku' : 'tambahBuku',
-                kodeLama: kode, kodeBaru: inputKode, kode: inputKode,
+                kodeLama: kode, // Menggunakan parameter 'kode' asli untuk acuan database saat edit
+                kodeBaru: inputKodeLengkap, 
+                kode: inputKodeLengkap,
                 kategori: document.getElementById('swal-kat').value,
                 judul: inputJudul,
                 edisi: document.getElementById('swal-edisi').value,
@@ -851,32 +935,75 @@ function modalFormBuku(mode, kat='', kode='', judul='', edisi='', jilid='', pene
     });
 }
 
+// ---------------------------------
+// MODAL FORM ANGGOTA (DENGAN PLACEHOLDER KODE TERAKHIR & VALIDASI DOBEL)
+// ---------------------------------
 function modalFormAnggota(mode, kode='', nama='', jk='Laki-Laki', ttl='', alamat='', telp='') {
     const isEdit = mode === 'edit';
+    
+    // 1. Logika untuk mencari Kode Anggota terakhir di database
+    let placeholderKode = "Contoh: A001";
+    if (!isEdit && dataAnggota.length > 0) {
+        // Mengambil kode dari baris paling akhir di array dataAnggota
+        let kodeTerakhir = dataAnggota[dataAnggota.length - 1][1];
+        placeholderKode = `Terakhir: ${kodeTerakhir} (Masukkan kode setelahnya)`;
+    }
+
     Swal.fire({
         title: `<h3 style="margin:0;"><i class="fa-solid fa-user-plus"></i> ${isEdit ? 'Edit' : 'Tambah'} Anggota</h3>`,
         html: `
             <div style="text-align: left; padding-top: 15px;">
-                <label>Kode Anggota</label><input id="swal-kode-ang" class="input-standard" value="${kode}" required>
-                <label class="mt-3">Nama Lengkap</label><input id="swal-nama-ang" class="input-standard" value="${nama}" required>
+                <label>Kode Anggota</label>
+                <input id="swal-kode-ang" class="input-standard" value="${kode}" placeholder="${placeholderKode}" required>
+                
+                <label class="mt-3">Nama Lengkap</label>
+                <input id="swal-nama-ang" class="input-standard" value="${nama}" required>
+                
                 <label class="mt-3">Jenis Kelamin</label>
                 <select id="swal-jk" class="input-standard">
                     <option value="Laki-Laki" ${jk==='Laki-Laki'?'selected':''}>Laki-Laki</option>
                     <option value="Perempuan" ${jk==='Perempuan'?'selected':''}>Perempuan</option>
                 </select>
+                
                 <label class="mt-3">Tempat, Tanggal Lahir</label>
                 <input id="swal-ttl" class="input-standard" placeholder="Contoh: Demak, 17 Aug 2007" value="${ttl}">
-                <label class="mt-3">Telephone</label><input id="swal-telp" class="input-standard" value="${telp}">
-                <label class="mt-3">Alamat</label><input id="swal-alamat" class="input-standard" value="${alamat}">
+                
+                <label class="mt-3">Alamat</label>
+                <input id="swal-alamat" class="input-standard" value="${alamat}">
             </div>
         `,
         width: '500px', showCancelButton: true, confirmButtonText: '<i class="fa-solid fa-save"></i> Simpan', confirmButtonColor: '#3b82f6',
         customClass: { popup: 'form-glass' },
         didOpen: enterToSubmit,
         preConfirm: () => {
-            const inputKode = document.getElementById('swal-kode-ang').value;
-            const inputNama = document.getElementById('swal-nama-ang').value;
-            if (!inputKode || !inputNama) { Swal.showValidationMessage('Kode dan Nama wajib diisi!'); return false; }
+            const inputKode = document.getElementById('swal-kode-ang').value.trim();
+            const inputNama = document.getElementById('swal-nama-ang').value.trim();
+            
+            if (!inputKode || !inputNama) { 
+                Swal.showValidationMessage('Kode dan Nama wajib diisi!'); 
+                return false; 
+            }
+            
+            // 2. Logika Validasi Kode Dobel
+            const isDuplicate = dataAnggota.some(row => {
+                // Ambil kode dari database (index 1), samakan formatnya (huruf kecil semua) agar pengecekan akurat
+                const existingKode = String(row[1]).trim().toLowerCase();
+                const newKode = inputKode.toLowerCase();
+                
+                if (isEdit) {
+                    // Jika sedang mode edit, abaikan jika kodenya sama dengan kode miliknya sendiri
+                    return existingKode === newKode && existingKode !== String(kode).trim().toLowerCase();
+                } else {
+                    // Jika mode tambah, pastikan tidak boleh ada yang sama dengan data mana pun
+                    return existingKode === newKode;
+                }
+            });
+
+            // Jika terdeteksi dobel, munculkan pesan error dan hentikan proses simpan
+            if (isDuplicate) {
+                Swal.showValidationMessage(`⛔ Kode Anggota "${inputKode}" sudah terdaftar! Gunakan kode lain.`);
+                return false;
+            }
             
             submitDataProses({
                 action: isEdit ? 'editAnggota' : 'tambahAnggota',
@@ -884,7 +1011,6 @@ function modalFormAnggota(mode, kode='', nama='', jk='Laki-Laki', ttl='', alamat
                 nama: inputNama,
                 jk: document.getElementById('swal-jk').value,
                 ttl: document.getElementById('swal-ttl').value,
-                telp: document.getElementById('swal-telp').value,
                 alamat: document.getElementById('swal-alamat').value
             }, isEdit ? 'Data anggota diperbarui.' : 'Anggota berhasil ditambahkan.');
         }
