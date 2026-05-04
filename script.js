@@ -1169,7 +1169,7 @@ async function checkAccessPin() {
         confirmButtonColor: '#3b82f6',
         preConfirm: async (enteredPin) => {
             const hashedInput = await hashPIN(enteredPin.trim());
-            // Cek apakah hash cocok (Tidak ada lagi teks "363636" di sini)
+            // Cek apakah hash cocok 
             if (hashedInput !== CORRECT_PIN_HASH) {
                 Swal.showValidationMessage('PIN salah! Akses ditolak.');
                 return false;
@@ -1183,7 +1183,6 @@ async function checkAccessPin() {
         Swal.fire({ title: 'Mengirim OTP...', text: 'Memproses ke email (Tunggu max 5 detik)', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         
         try {
-            // PERBAIKAN: Tambahkan header text/plain agar tidak terkena block CORS dari Browser
             const res = await fetch(scriptUrl, { 
                 method: 'POST', 
                 headers: {
@@ -1199,10 +1198,13 @@ async function checkAccessPin() {
                     text: 'Masukkan kode 4-Digit yang dikirim ke Email',
                     input: 'text',
                     inputPlaceholder: 'Kode OTP',
-                    // PERBAIKAN: Maksimal panjang karakter diubah jadi 4
                     inputAttributes: { maxlength: 4, style: 'text-align: center; font-size: 1.5rem; letter-spacing: 10px; border-radius: 12px;' },
                     showCancelButton: true,
                     confirmButtonText: 'Verifikasi OTP',
+                    // --- ANIMASI LOADING DITAMBAHKAN DI SINI ---
+                    showLoaderOnConfirm: true,
+                    allowOutsideClick: () => !Swal.isLoading(),
+                    // -------------------------------------------
                     preConfirm: async (val) => {
                         const verifyRes = await fetch(scriptUrl, { 
                             method: 'POST', 
