@@ -1180,7 +1180,7 @@ async function checkAccessPin() {
 
     if (pin) {
         // --- PROSES OTP ---
-        Swal.fire({ title: 'Mengirim OTP...', text: 'Memproses ke email, Silahkan Cek Email', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Mengirim OTP...', text: 'Silahkan Cek Email (Inbox)', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
         
         try {
             const res = await fetch(scriptUrl, { 
