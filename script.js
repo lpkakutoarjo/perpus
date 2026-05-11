@@ -1023,21 +1023,21 @@ function modalFormAnggota(mode, kode='', nama='', jk='Laki-Laki', ttl='', alamat
     });
 }
 
-
 // ==========================================
 // FUNGSI EXPORT & PRINT (VERSI FULL DATA DATABASE)
 // ==========================================
 
 // Fungsi bantuan untuk membuat tabel HTML tersembunyi berisi seluruh data
-function getFullTableHTML(tableId) {
+function getFullTableHTML(tableId, isExcel = false, titleDoc = '', timestamp = '') {
     let html = '<table border="1" style="border-collapse: collapse; width: 100%; text-align: left;">';
     let thead = '';
     let tbody = '<tbody>';
     let data = [];
+    let colCount = 1;
 
     if (tableId === 'table-peminjaman') {
+        colCount = 10;
         thead = '<thead><tr><th>No</th><th>No Anggota</th><th>Nama Lengkap</th><th>Kode Buku</th><th>Judul Buku</th><th>Jml</th><th>Tgl Pinjam</th><th>Tgl Kembali</th><th>Status Pengembalian</th><th>Denda</th></tr></thead>';
-        // Urutkan data peminjaman terbaru di atas
         data = [...dataPinjam].reverse().sort((a,b) => {
             let dA = new Date(a[5]); let dB = new Date(b[5]);
             return (!isNaN(dA) && !isNaN(dB)) ? dB - dA : 0;
@@ -1049,35 +1049,54 @@ function getFullTableHTML(tableId) {
         });
     } 
     else if (tableId === 'table-buku') {
+        colCount = 13;
         thead = '<thead><tr><th>No</th><th>Kategori</th><th>Kode Buku</th><th>Judul Buku</th><th>Edisi</th><th>Jilid</th><th>Penerbit</th><th>Kota</th><th>Tahun</th><th>ISBN</th><th>Stok</th><th>Pengarang 1</th><th>Pengarang 2</th></tr></thead>';
-        // Urutkan data buku terbaru di atas
         data = [...dataBuku].reverse();
         data.forEach((row, i) => {
             tbody += `<tr><td>${i+1}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]||'-'}</td><td>${row[5]||'-'}</td><td>${row[6]}</td><td>${row[7]}</td><td>${row[8]}</td><td>${row[9]}</td><td>${row[10]}</td><td>${row[11]}</td><td>${row[12]||'-'}</td></tr>`;
         });
     } 
     else if (tableId === 'table-anggota') {
+        colCount = 7;
         thead = '<thead><tr><th>No</th><th>Kode Anggota</th><th>Nama Lengkap</th><th>L/P</th><th>Tempat, Tgl Lahir</th><th>Alamat</th><th>Jml Pinjam</th></tr></thead>';
         data = [...dataAnggota].sort((a,b) => String(b[1]||'').localeCompare(String(a[1]||''), undefined, {numeric: true}));
         data.forEach((row, i) => {
-            // Karena Jml Pinjam ada di Kolom A, kita ambil dari row[0]
             let jmlPinjam = row[0] || 0; 
             tbody += `<tr><td>${i+1}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td><td>${row[4]}</td><td>${row[5]}</td><td style="text-align:center;">${jmlPinjam}</td></tr>`;
         });
     }
     else {
-        // Fallback jika id tidak dikenali, ambil dari layar saja
         return document.getElementById(tableId).outerHTML;
     }
 
+    // Jika dipanggil dari Export Excel, tambahkan Header Judul di dalam thead agar rapi dan tidak merusak layout Excel
+    let headerExcel = '';
+    if (isExcel && titleDoc !== '') {
+        headerExcel = `
+            <thead>
+                <tr><th colspan="${colCount}" style="text-align:center; font-size: 16px; font-weight: bold; background: #ffffff;">PERPUSTAKAAN LPKA KELAS I KUTOARJO</th></tr>
+                <tr><th colspan="${colCount}" style="text-align:center; font-size: 14px; font-weight: bold; background: #ffffff;">${titleDoc}</th></tr>
+                <tr><th colspan="${colCount}" style="text-align:right; font-size: 11px; font-style: italic; background: #ffffff;">Waktu Export: ${timestamp}</th></tr>
+                <tr><th colspan="${colCount}" style="background: #ffffff;"></th></tr>
+            </thead>
+        `;
+    }
+
     tbody += '</tbody>';
-    html += thead + tbody + '</table>';
+    html += headerExcel + thead + tbody + '</table>';
     return html;
 }
 
 function exportExcel(tableId, filename) {
-    // Generate full HTML dari array data mentah
-    let html = getFullTableHTML(tableId);
+    // Merapikan string judul ("Data_Peminjaman" menjadi "DATA PEMINJAMAN")
+    let titleText = filename.replace(/_/g, ' ').toUpperCase(); 
+    
+    // Mengambil Waktu Saat Ini dengan format Indonesia
+    let dt = new Date();
+    let timestamp = dt.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' pukul ' + dt.toLocaleTimeString('id-ID') + ' WIB';
+    
+    // Generate full HTML yang sudah diinjeksi header judul excel
+    let html = getFullTableHTML(tableId, true, titleText, timestamp);
     
     let blob = new Blob([html], { type: "application/vnd.ms-excel" });
     let a = document.createElement("a");
@@ -1087,29 +1106,61 @@ function exportExcel(tableId, filename) {
 }
 
 function printTable(tableId, title) {
-    // Generate full HTML dari array data mentah
-    let tableHTML = getFullTableHTML(tableId);
+    // Merapikan string judul dari parameter Print
+    let titleText = title.replace(/Laporan /gi, '').toUpperCase(); 
+    
+    // Mengambil Waktu Saat Ini dengan format Indonesia
+    let dt = new Date();
+    let timestamp = dt.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' pukul ' + dt.toLocaleTimeString('id-ID') + ' WIB';
+
+    // Generate full HTML tanpa header Excel khusus, karena header Print dikustomisasi via CSS
+    let tableHTML = getFullTableHTML(tableId, false);
     
     let win = window.open('', '', 'height=700,width=900');
     win.document.write(`
         <html><head><title>${title}</title>
         <style>
             body { font-family: 'Arial', sans-serif; padding: 20px; }
-            h2 { text-align: center; color: #333; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            
+            /* CSS Kustomisasi Header Dokumen Print */
+            .doc-header { text-align: center; margin-bottom: 25px; border-bottom: 3px double #333; padding-bottom: 10px; }
+            .doc-header h2 { margin: 0; color: #111; font-size: 22px; font-weight: bold; }
+            .doc-header h3 { margin: 5px 0 0 0; color: #333; font-size: 18px; letter-spacing: 1px; }
+            
+            /* Ubah doc-info menjadi flexbox agar sejajar kiri-kanan */
+            .doc-info { 
+                display: flex; 
+                justify-content: space-between; 
+                margin-bottom: 15px; 
+                font-size: 12px; 
+                font-style: italic; 
+                color: #555; 
+            }
+            
+            table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #333; padding: 8px; text-align: left; font-size: 12px; }
             th { background: #f4f4f4; text-transform: uppercase; }
-            /* Menyembunyikan elemen kolom tombol aksi kalau ada sisa */
             .btn-more-sm, .btn-del, .table-controls, .search-box { display: none !important; }
         </style>
         </head><body>
-        <h2>${title}</h2>
+        
+        <div class="doc-header">
+            <h2>PERPUSTAKAAN LPKA KELAS I KUTOARJO</h2>
+            <h3>${titleText}</h3>
+        </div>
+        
+        <div class="doc-info">
+            <span>perpus.lpkakutoarjo.my.id</span>
+            <span>Dicetak pada: ${timestamp}</span>
+        </div>
+        
         ${tableHTML}
+        
         <script>
             setTimeout(function(){ 
                 window.print(); 
                 window.close(); 
-            }, 800); // Waktu delay diperpanjang sedikit agar tabel full data ter-render sempurna sebelum di-print
+            }, 800);
         </script>
         </body></html>
     `);
