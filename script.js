@@ -187,12 +187,18 @@ let sortState = {
 // 2. Fungsi Eksekusi Sorting saat Header Tabel diklik
 function setSort(tabel, colIndex) {
     if (sortState[tabel].col === colIndex) {
-        sortState[tabel].order = sortState[tabel].order === 'asc' ? 'desc' : 'asc';
+        if (sortState[tabel].order === 'asc') {
+            sortState[tabel].order = 'desc';
+        } else {
+            sortState[tabel].col = -1;
+            sortState[tabel].order = 'asc'; 
+        }
     } else {
-        sortState[tabel].col = colIndex;
+        sortState[tabel].col = colIndex;     
         sortState[tabel].order = 'asc';
     }
     
+    // Proses render ulang tabel dengan state yang baru
     if (tabel === 'dash') renderTableDashboard();
     if (tabel === 'pinjam') renderTablePeminjaman();
     if (tabel === 'buku') renderTableBuku();
